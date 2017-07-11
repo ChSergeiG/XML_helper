@@ -5,9 +5,18 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.*;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
 public class Helper {
-    String headName = "XML helper v 0.01";
+    String headName = "XML helper v 0.02";
     JFrame frame = new JFrame(headName);
     BorderLayout layout;
     JPanel mainPanel;
@@ -48,45 +57,73 @@ public class Helper {
         hlp.setUpGUI();
     }
     private void startParser() {
+        File[] inputFiles = wd.listFiles();
+        File outputDetailedFile = new File(wd.getParent() + "\\catalogue_products.xml");
+        File outputSummaryFile = new File(wd.getParent()+ "\\products_to_categories.xml");
+        FileWriter outputDetailedFileWriter;
+        FileWriter outputSummaryFileWriter;
+        int numberOfInputFiles = inputFiles.length;
+        SimpleDateFormat sdf = new SimpleDateFormat("YYYY-MM-dd");
+        Date nowDate = new Date();
+        String outputFilesHeader = "<?xml version =\"1.0\" encoding=\"UTF-8\"?>\n<КоммерческаяИнформация ВерсияСхемы=\"2.03\" ДатаФормирования=\"";
+        String outputFileDate = sdf.format(nowDate);
+        String outputFilesFooter = "\">\n\n</КоммерческаяИнформация>";
+        Document[] inputDocuments = new Document[numberOfInputFiles];
+        NodeList[] inputNodeLists = new NodeList[numberOfInputFiles];
+        DocumentBuilderFactory dbf;
+        DocumentBuilder db;
         try {
-            // Looking for all files in defined directory
-            File[] files2w = wd.listFiles();
-            File wd2 = wd.getParentFile();
-            // Defining and creating two output files in ./../
-            File outp_d = new File(wd2.getAbsolutePath()+"\\catalogue_products.xml");
-            File outp_s = new File(wd2.getAbsolutePath()+"\\products_to_categories.xml");
-            if (outp_d.exists()) outp_d.delete();
-            if (outp_s.exists()) outp_s.delete();
-            outp_d.createNewFile();
-            outp_s.createNewFile();
-            // Parsing files in work directory one-by-one and writing result in output
-            for (File file2w : files2w) {
+            if (outputDetailedFile.exists()) outputDetailedFile.delete(); outputDetailedFile.createNewFile();
+            if (outputSummaryFile.exists()) outputSummaryFile.delete(); outputSummaryFile.createNewFile();
+            outputDetailedFileWriter  = new FileWriter(outputDetailedFile);
+            outputDetailedFileWriter.write(outputFilesHeader+outputFileDate+outputFilesFooter);
+            outputDetailedFileWriter.close();
+            outputSummaryFileWriter = new FileWriter(outputSummaryFile);
+            outputSummaryFileWriter.write(outputFilesHeader+outputFileDate+outputFilesFooter);
+            outputSummaryFileWriter.close();
 
-
-
-
-
-
+            dbf = DocumentBuilderFactory.newInstance();
+            db = dbf.newDocumentBuilder();
+            for (int i = 0; i < numberOfInputFiles; i++) {
+                inputDocuments[i] = db.parse(inputFiles[i]);
+                inputNodeLists[i] = inputDocuments[i].getElementsByTagName("offer");
             }
-        } catch (NullPointerException e) {
+            Document outputDetailedDocument = db.parse(outputDetailedFile);
+            Document outputSummaryDocument = db.parse(outputSummaryFile);
+            NodeList outputDetailedNodeList = outputDetailedDocument.getElementsByTagName("offer");
+            NodeList outputSummaryNodeList = outputSummaryDocument.getElementsByTagName("offer");
+
+            for (int i = 0; i < numberOfInputFiles; i++) {
+                for (int j = 0; j < inputNodeLists[i].getLength(); j++) {
+
+                }
+            }
+
+
+
+
+
+
+
+        } catch (ParserConfigurationException e) {
+            e.printStackTrace();
+        } catch (SAXException e) {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private void transform_d (File fileToRead, File fileToWrite) {
-        FileInputStream fis;
-        FileOutputStream fos;
-        try {
-            fis = new FileInputStream(fileToRead);
-            fos = new FileOutputStream(fileToWrite);
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
+    public static Node getChildrenByNodeName(Node node, String nodeName) {
+        for (Node childNode = node.getFirstChild(); childNode != null;) {
+            Node nextChild = childNode.getNextSibling();
+            if (childNode.getNodeName().equalsIgnoreCase(nodeName)) {
+                return childNode;
+            }
+            childNode = nextChild;
         }
-
+        return null;
     }
-    private void transform_s (File fileToRead, File fileToWrite) {}
 
     // File/quit
     private class MyQuitListener implements ActionListener {@Override public void actionPerformed (ActionEvent e) {System.exit(0);}}
