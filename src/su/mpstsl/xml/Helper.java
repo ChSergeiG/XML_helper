@@ -16,7 +16,7 @@ import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 public class Helper {
-    String headName = "XML helper v 0.02";
+    String headName = "xml helper v 0.02";
     JFrame frame = new JFrame(headName);
     BorderLayout layout;
     JPanel mainPanel;
