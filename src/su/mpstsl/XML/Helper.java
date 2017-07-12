@@ -60,14 +60,7 @@ public class Helper {
         File[] inputFiles = wd.listFiles();
         File outputDetailedFile = new File(wd.getParent() + "\\catalogue_products.xml");
         File outputSummaryFile = new File(wd.getParent()+ "\\products_to_categories.xml");
-        FileWriter outputDetailedFileWriter;
-        FileWriter outputSummaryFileWriter;
         int numberOfInputFiles = inputFiles.length;
-        SimpleDateFormat sdf = new SimpleDateFormat("YYYY-MM-dd");
-        Date nowDate = new Date();
-        String outputFilesHeader = "<?xml version =\"1.0\" encoding=\"UTF-8\"?>\n<КоммерческаяИнформация ВерсияСхемы=\"2.03\" ДатаФормирования=\"";
-        String outputFileDate = sdf.format(nowDate);
-        String outputFilesFooter = "\">\n\n</КоммерческаяИнформация>";
         Document[] inputDocuments = new Document[numberOfInputFiles];
         NodeList[] inputNodeLists = new NodeList[numberOfInputFiles];
         DocumentBuilderFactory dbf;
@@ -75,12 +68,8 @@ public class Helper {
         try {
             if (outputDetailedFile.exists()) outputDetailedFile.delete(); outputDetailedFile.createNewFile();
             if (outputSummaryFile.exists()) outputSummaryFile.delete(); outputSummaryFile.createNewFile();
-            outputDetailedFileWriter  = new FileWriter(outputDetailedFile);
-            outputDetailedFileWriter.write(outputFilesHeader+outputFileDate+outputFilesFooter);
-            outputDetailedFileWriter.close();
-            outputSummaryFileWriter = new FileWriter(outputSummaryFile);
-            outputSummaryFileWriter.write(outputFilesHeader+outputFileDate+outputFilesFooter);
-            outputSummaryFileWriter.close();
+            fillFileByDefault(outputDetailedFile);
+            fillFileByDefault(outputSummaryFile);
 
             dbf = DocumentBuilderFactory.newInstance();
             db = dbf.newDocumentBuilder();
@@ -114,21 +103,46 @@ public class Helper {
         }
     }
 
-    public static Node getChildrenByNodeName(Node node, String nodeName) {
-        for (Node childNode = node.getFirstChild(); childNode != null;) {
-            Node nextChild = childNode.getNextSibling();
-            if (childNode.getNodeName().equalsIgnoreCase(nodeName)) {
-                return childNode;
-            }
-            childNode = nextChild;
+//    public static Node getChildrenByNodeName(Node node, String nodeName) {
+//        for (Node childNode = node.getFirstChild(); childNode != null;) {
+//            Node nextChild = childNode.getNextSibling();
+//            if (childNode.getNodeName().equalsIgnoreCase(nodeName)) {
+//                return childNode;
+//            }
+//            childNode = nextChild;
+//        }
+//        return null;
+//    }
+
+    private static void fillFileByDefault(File f) {
+        SimpleDateFormat sdf = new SimpleDateFormat("YYYY-MM-dd");
+        Date nowDate = new Date();
+        String outputFilesHeader = "<?xml version =\"1.0\" encoding=\"UTF-8\"?>\n<КоммерческаяИнформация ВерсияСхемы=\"2.03\" ДатаФормирования=\"";
+        String outputFileDate = sdf.format(nowDate);
+        String outputFilesFooter = "\">\n\n</КоммерческаяИнформация>";
+        try {
+            FileWriter outputFW  = new FileWriter(f);
+            outputFW.write(outputFilesHeader+outputFileDate+outputFilesFooter);
+            outputFW.close();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-        return null;
     }
 
     // File/quit
-    private class MyQuitListener implements ActionListener {@Override public void actionPerformed (ActionEvent e) {System.exit(0);}}
+    private class MyQuitListener implements ActionListener {
+        @Override
+        public void actionPerformed (ActionEvent e) {
+            System.exit(0);
+        }
+    }
     // Start button
-    private class MyStartListener implements ActionListener {@Override public void actionPerformed(ActionEvent e) {if (wd != null) startParser();}}
+    private class MyStartListener implements ActionListener {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            if (wd != null) startParser();
+        }
+    }
     // Change working directory button
     private class MyWdirListener implements  ActionListener {
         @Override
