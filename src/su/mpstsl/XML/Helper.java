@@ -1,4 +1,4 @@
-package su.mpstsl.XML;
+package su.mpstsl.xml;
 
 import javax.swing.*;
 import java.awt.*;
