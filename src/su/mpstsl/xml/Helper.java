@@ -52,10 +52,12 @@ public class Helper {
         frame.pack();
         frame.setVisible(true);
     }
+
     public static void main(String[] args) {
         Helper hlp = new Helper();
         hlp.setUpGUI();
     }
+
     private void startParser() {
         File[] inputFiles = wd.listFiles();
         File outputDetailedFile = new File(wd.getParent() + "\\catalogue_products.xml");
@@ -87,11 +89,6 @@ public class Helper {
 
                 }
             }
-
-
-
-
-
 
 
         } catch (ParserConfigurationException e) {
@@ -136,6 +133,7 @@ public class Helper {
             System.exit(0);
         }
     }
+
     // Start button
     private class MyStartListener implements ActionListener {
         @Override
@@ -143,6 +141,7 @@ public class Helper {
             if (wd != null) startParser();
         }
     }
+
     // Change working directory button
     private class MyWdirListener implements  ActionListener {
         @Override
