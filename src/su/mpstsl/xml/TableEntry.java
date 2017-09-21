@@ -3,8 +3,8 @@ package su.mpstsl.xml;
 
 class TableEntry {
 
-    private static final int ENTRY_SIZE = 45;
-    static String[] comments = {"код товара Утварь", "код основной родительской категории", "артикул производителя",
+    static final int ENTRY_SIZE = 42;
+    static String[] comments = {"код товара", "код основной родительской категории", "артикул производителя",
             "наименование товара", "заголовок товара", "подзаголовок товара", "цена", "остаток", "дата поступления",
             "страна-производитель", "производитель", "автор", "вес, гр", "вес нетто, гр", "аромат", "длина, см",
             "высота, см", "ширина, см", "размер общий, см", "размер внутренний, см", "форма", "цвет",
@@ -17,12 +17,4 @@ class TableEntry {
             "size_general", "size_inner", "form", "color", "material", "technics", "texture", "image", "decorations",
             "additions", "coating", "construction", "purpose", "kit", "packing", "quantity_in_package", "volume",
             "mixture", "status", "novelty", "gift", "priority", "selling", "series"};
-
-    TableEntry() {
-
-        String[] definition = new String[ENTRY_SIZE];
-    }
-
-
-
 }

@@ -8,58 +8,78 @@ import java.io.File;
 
 class Workshop extends JPanel {
 
-    File wd;
+    private File wd;
     JTextArea textArea;
-    Parser parser;
-    MainWindow window;
+    private Parser parser;
+    private JButton btnParse;
 
+    /**
+     * Constructor for  general workspace
+     * @param window frame of main window to work with
+     */
     Workshop(MainWindow window) {
-        this.window = window;
-        BorderLayout layout = new BorderLayout();
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        textArea = new JTextArea(18,70);
-        JScrollPane textAreaWithScroll = new JScrollPane (textArea,JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
-                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        textArea = new JTextArea(22, 80);
+        JScrollPane scrlTextAres = new JScrollPane(textArea, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
+                JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         textArea.setEditable(false);
-        textArea.append("----------------------------------------------------------------------\n");
+        textArea.append("--------------------------------------------------------------------------------\n");
         textArea.setText("");
-        textArea.setFont(new Font("Consolas",Font.PLAIN,14));
-        JButton wFlsBut = new JButton("Files");
-        JButton parseWD = new JButton("Parse");
-        JButton clearTArea = new JButton("Clear");
+        textArea.setFont(new Font("Consolas", Font.PLAIN, 12));
+        JButton btnFiles = new JButton("Files");
+        btnParse = new JButton("Parse");
+        JButton btnClearTextArea = new JButton("Clear");
+        JButton btnClose = new JButton("Close");
+        btnParse.setEnabled(false);
         Box center = new Box(BoxLayout.Y_AXIS);
         add(BorderLayout.CENTER, center);
-        center.add(textAreaWithScroll);
-        //
+        center.add(scrlTextAres);
         Box south = new Box(BoxLayout.X_AXIS);
         add(BorderLayout.SOUTH, south);
-        south.add(wFlsBut);
-        south.add(parseWD);
-        south.add(clearTArea);
-
-        wFlsBut.addActionListener(new ActionListener() {
+        south.add(btnFiles);
+        south.add(btnParse);
+        south.add(btnClearTextArea);
+        south.add(btnClose);
+        btnFiles.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                JFileChooser setWD = new JFileChooser();
+                JFileChooser setWD = new JFileChooser(System.getProperty("user.home"));
                 setWD.setDialogType(JFileChooser.OPEN_DIALOG);
                 setWD.showDialog(window, "This one");
                 wd = setWD.getCurrentDirectory();
+                textArea.append("Selected path: " + wd.getPath() + "\n");
+                btnParse.setEnabled(true);
             }
         });
-        parseWD.addActionListener(new ActionListener() {
+        btnParse.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (wd != null) {
-                    parser = new Parser(window);
-                    parser.startParser(wd);
+                    parser = new Parser(window, wd);
+                    parser.parseIt();
                 }
             }
         });
-        clearTArea.addActionListener(new ActionListener() {
+        btnClearTextArea.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 textArea.setText("");
             }
         });
+        btnClose.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                System.exit(0);
+            }
+        });
     }
+
+    /**
+     * Method to disable "parse" button
+     */
+
+    void setParseButtonDisabled() {
+        btnParse.setEnabled(false);
+    }
+
 }
