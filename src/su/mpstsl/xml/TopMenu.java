@@ -7,18 +7,23 @@ import java.awt.event.ActionListener;
 class TopMenu extends JMenuBar {
     /**
      * Constructor for top pull-down menu
+     *
      * @param window frame of main window
      */
     TopMenu(MainWindow window) {
-        JMenu fileMenu = new JMenu("File");
-        add(fileMenu);
-        JMenuItem quit = new JMenuItem("Quit");
-        quit.addActionListener(new ActionListener() {
+        JMenu jmFile = new JMenu("File");
+        add(jmFile);
+        JMenuItem jmiQuit = new JMenuItem("Quit");
+        jmFile.add(jmiQuit);
+        JMenu jmInfo = new JMenu("Info");
+        add(jmInfo);
+        JMenuItem jmiAbout = new JMenuItem("About");
+        jmInfo.add(jmiAbout);
+        jmiQuit.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 System.exit(0);
             }
         });
-        fileMenu.add(quit);
     }
 }

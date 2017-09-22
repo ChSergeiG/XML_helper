@@ -19,11 +19,11 @@ class Workshop extends JPanel {
      */
     Workshop(MainWindow window) {
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        textArea = new JTextArea(22, 80);
+        textArea = new JTextArea(20, 75);
         JScrollPane scrlTextAres = new JScrollPane(textArea, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
                 JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         textArea.setEditable(false);
-        textArea.append("--------------------------------------------------------------------------------\n");
+        textArea.append("---------------------------------------------------------------------------\n");
         textArea.setText("");
         textArea.setFont(new Font("Consolas", Font.PLAIN, 12));
         JButton btnFiles = new JButton("Files");

@@ -11,7 +11,7 @@ public class MainWindow extends JFrame {
     private static final int POS_Y = 200;
     private static final int WINDOW_WIDTH = 600;
     private static final int WINDOW_HEIGHT = 440;
-    private static final String WINDOW_NAME = "XML helper v 0.10";
+    private static final String WINDOW_NAME = "XML helper v 0.12";
 
     Workshop workshop;
 
