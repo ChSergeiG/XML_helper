@@ -18,6 +18,7 @@ import javax.xml.transform.stream.StreamResult;
 import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 
 class Parser {
@@ -42,6 +43,23 @@ class Parser {
         nodes = new ArrayList<>();
         outputArea = window.workshop.textArea;
         inputFiles = wd.listFiles();
+        checkFiles();
+    }
+
+    private void checkFiles() {
+        File[] checkedFiles = new File[0];
+        for (File file : inputFiles) {
+            String name = file.getName();
+            if (name.substring(name.length() - 4, name.length()).equals(".xml"))
+                checkedFiles = pushFileToArray(checkedFiles, file);
+        }
+        inputFiles = checkedFiles;
+    }
+
+    private File[] pushFileToArray(File[] array, File file) {
+        File[] newFileArray = Arrays.copyOf(array, array.length + 1);
+        newFileArray[array.length] = file;
+        return newFileArray;
     }
 
     /**
@@ -89,7 +107,7 @@ class Parser {
             printFileInfo(outputDetailedFile);
             printFileInfo(outputSummaryFile);
         } catch (Exception e) {
-            outputArea.append(e.getLocalizedMessage() + "\n");
+            outputArea.append(e.getMessage() + "\n");
             return;
         }
         outputArea.append("-------------------------------------\n#nodes: " + nodeAmount + "\n");
