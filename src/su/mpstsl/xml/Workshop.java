@@ -6,18 +6,21 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 
-class Workshop extends JPanel {
+class Workshop extends JPanel implements ActionListener {
 
     private File wd;
     JTextArea textArea;
     private Parser parser;
     private JButton btnParse;
+    private MainWindow window;
 
     /**
      * Constructor for  general workspace
+     *
      * @param window frame of main window to work with
      */
     Workshop(MainWindow window) {
+        this.window = window;
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         textArea = new JTextArea(20, 75);
         JScrollPane scrlTextAres = new JScrollPane(textArea, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
@@ -40,38 +43,10 @@ class Workshop extends JPanel {
         south.add(btnParse);
         south.add(btnClearTextArea);
         south.add(btnClose);
-        btnFiles.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                JFileChooser setWD = new JFileChooser(System.getProperty("user.home"));
-                setWD.setDialogType(JFileChooser.OPEN_DIALOG);
-                setWD.showDialog(window, "This one");
-                wd = setWD.getCurrentDirectory();
-                textArea.append("Selected path: " + wd.getPath() + "\n");
-                btnParse.setEnabled(true);
-            }
-        });
-        btnParse.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (wd != null) {
-                    parser = new Parser(window, wd);
-                    parser.parseIt();
-                }
-            }
-        });
-        btnClearTextArea.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                textArea.setText("");
-            }
-        });
-        btnClose.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                System.exit(0);
-            }
-        });
+        btnFiles.addActionListener(this);
+        btnParse.addActionListener(this);
+        btnClearTextArea.addActionListener(this);
+        btnClose.addActionListener(this);
     }
 
     /**
@@ -82,4 +57,30 @@ class Workshop extends JPanel {
         btnParse.setEnabled(false);
     }
 
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        switch (e.getActionCommand()) {
+            case "Files":
+                JFileChooser setWD = new JFileChooser(System.getProperty("user.home"));
+                setWD.setDialogType(JFileChooser.OPEN_DIALOG);
+                setWD.showDialog(window, "This one");
+                wd = setWD.getCurrentDirectory();
+                textArea.append("Selected path: " + wd.getPath() + "\n");
+                btnParse.setEnabled(true);
+                break;
+            case "Parse":
+                if (wd != null) {
+                    parser = new Parser(window, wd);
+                    parser.parseIt();
+                }
+                break;
+            case "Clear":
+                textArea.setText("");
+            case "Close":
+                System.exit(0);
+                break;
+            default:
+                break;
+        }
+    }
 }

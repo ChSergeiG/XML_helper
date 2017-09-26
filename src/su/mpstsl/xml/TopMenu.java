@@ -4,7 +4,7 @@ import javax.swing.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
-class TopMenu extends JMenuBar {
+class TopMenu extends JMenuBar implements ActionListener {
     /**
      * Constructor for top pull-down menu
      *
@@ -15,15 +15,24 @@ class TopMenu extends JMenuBar {
         add(jmFile);
         JMenuItem jmiQuit = new JMenuItem("Quit");
         jmFile.add(jmiQuit);
-        JMenu jmInfo = new JMenu("Info");
-        add(jmInfo);
+        JMenu jmSettings = new JMenu("Settings");
+        add(jmSettings);
         JMenuItem jmiAbout = new JMenuItem("About");
-        jmInfo.add(jmiAbout);
-        jmiQuit.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
+        jmSettings.add(jmiAbout);
+        jmiQuit.addActionListener(this);
+        jmiAbout.addActionListener(this);
+    }
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        System.out.println(e.getActionCommand());
+        switch (e.getActionCommand()) {
+            case "Quit":
                 System.exit(0);
-            }
-        });
+            case "About":
+                break;
+            default:
+                break;
+        }
     }
 }

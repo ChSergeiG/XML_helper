@@ -46,6 +46,10 @@ class Parser {
         checkFiles();
     }
 
+    /**
+     * Check file extensions
+     */
+
     private void checkFiles() {
         File[] checkedFiles = new File[0];
         for (File file : inputFiles) {
@@ -55,6 +59,14 @@ class Parser {
         }
         inputFiles = checkedFiles;
     }
+
+    /**
+     * Push file into file array
+     *
+     * @param array array with files
+     * @param file  file to push
+     * @return updated array
+     */
 
     private File[] pushFileToArray(File[] array, File file) {
         File[] newFileArray = Arrays.copyOf(array, array.length + 1);
@@ -80,7 +92,7 @@ class Parser {
         outputArea.append("Files to parse:\n");
         for (File file : inputFiles)
             printFileInfo(file);
-        outputArea.append("-------------------------------------\n");
+        outputArea.append("-------------------------------------\nOutput files:\n");
         try {
             // Builders for detailed and summary files
             DocumentBuilder detDocumentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
