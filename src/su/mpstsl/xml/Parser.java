@@ -22,14 +22,17 @@ import java.util.Arrays;
 import java.util.Date;
 
 class Parser {
+    private static final int DET_MODE = 0;
+    private static final int SUM_MODE = 1;
+    private static final char[] alphabet = {'а', 'б', 'в', 'г', 'д', 'е', 'ж', 'з', 'и', 'к', 'л', 'м', 'н', 'о', 'п',
+            'р', 'с', 'т', 'у', 'ф', 'х', 'ц', 'ч', 'ш', 'щ', 'ы', 'э', 'ю', 'я'};
 
     private ArrayList<Node> nodes;
     private MainWindow window;
-    // Area in main window
+
     private JTextArea outputArea;
     private File[] inputFiles;
     private File wd;
-    private SimpleDateFormat sdf;
 
     /**
      * Parser constructor.
@@ -49,7 +52,6 @@ class Parser {
     /**
      * Check file extensions
      */
-
     private void checkFiles() {
         File[] checkedFiles = new File[0];
         for (File file : inputFiles) {
@@ -79,69 +81,79 @@ class Parser {
      */
 
     void parseIt() {
-        long start = System.nanoTime();
-        int nodeAmount;
-        Node newDHead, newSHead;
-        // Define location for output files as a relative directory to directory with pointed files
-        File outputDetailedFile = new File(wd.getParent() + "\\catalogue_products.xml");
-        File outputSummaryFile = new File(wd.getParent() + "\\products_to_categories.xml");
-        // Fill files by default (bicycle-bicycle)
-        fillFileByDefault(outputDetailedFile);
-        fillFileByDefault(outputSummaryFile);
-        sdf = new SimpleDateFormat("YYYY-MM-dd HH:mm:ss");
-        outputArea.append("Files to parse:\n");
-        for (File file : inputFiles)
-            printFileInfo(file);
-        outputArea.append("-------------------------------------\nOutput files:\n");
         try {
-            // Builders for detailed and summary files
-            DocumentBuilder detDocumentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-            DocumentBuilder sumDocumentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-            // DOM trees
-            Document detDocument = detDocumentBuilder.parse(outputDetailedFile);
-            Document sumDocument = sumDocumentBuilder.parse(outputSummaryFile);
-            // Get parent element (it was created by fillFileByDefault method)
-            newDHead = detDocument.getDocumentElement();
-            newSHead = sumDocument.getDocumentElement();
+            long start = System.nanoTime();
+            int[] modes = {DET_MODE, SUM_MODE};
+            String[] filePaths = {"\\catalogue_products.xml", "\\products_to_categories.xml"};
+            outputArea.append("Files to parse:\n");
             // Parse all files in target folder
-            for (File file : inputFiles)
+            for (File file : inputFiles) {
                 readFile(file);
-            nodeAmount = nodes.size();
-            // Every extracted node writes in summary and detailed file
-            for (Node node : nodes) {
-                addNodeToFiles(node, newDHead, newSHead, detDocument, sumDocument);
+                printFileInfo(file);
             }
+            outputArea.append("-------------------------------------\nOutput files:\n");
+            for (int i = 0; i < filePaths.length; i++) {
+                // Define location for output file
+                File outputFile = new File(wd.getParent() + filePaths[i]);
+                pushDocumentToFile(outputFile, nodes, modes[i]);
+                printFileInfo(outputFile);
+            }
+            outputArea.append("-------------------------------------\n#nodes: " + nodes.size() + "\n");
+            long time = (System.nanoTime() - start) / 1000 / 1000;
+            outputArea.append("Completed without errors in " + time + " ms\n");
             nodes = null;
-            // Write detailed file
-            writeFile(detDocument, outputDetailedFile);
-            // Write summary file
-            writeFile(sumDocument, outputSummaryFile);
-            printFileInfo(outputDetailedFile);
-            printFileInfo(outputSummaryFile);
-        } catch (Exception e) {
+            window.workshop.setParseButtonDisabled();
+        } catch (TransformerException e) {
+            outputArea.append(e.getMessage() + "\n");
+            return;
+        } catch (ParserConfigurationException e) {
+            outputArea.append(e.getMessage() + "\n");
+            return;
+        } catch (SAXException e) {
+            outputArea.append(e.getMessage() + "\n");
+        } catch (IOException e) {
             outputArea.append(e.getMessage() + "\n");
             return;
         }
-        outputArea.append("-------------------------------------\n#nodes: " + nodeAmount + "\n");
-        long time = (System.nanoTime() - start) / 1000 / 1000;
-        outputArea.append("Completed without errors in " + time + " ms\n");
-        window.workshop.setParseButtonDisabled();
+    }
+
+    /**
+     * @param outputFile file to write in
+     * @param nodes      ArrayList of nodes to push
+     * @param mode       mode detailed/summary0
+     * @throws IOException                  IOException
+     * @throws ParserConfigurationException ParserConfigurationException
+     * @throws SAXException                 SAXException
+     * @throws TransformerException         TransformerException
+     */
+    private void pushDocumentToFile(File outputFile, ArrayList<Node> nodes, int mode)
+            throws IOException, ParserConfigurationException, SAXException, TransformerException {
+        // Fill files by default (bicycle-bicycle)
+        fillFileByDefault(outputFile);
+        // Builders for file
+        DocumentBuilder documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+        // DOM tree
+        Document document = documentBuilder.parse(outputFile);
+        // Get parent element (it was created by fillFileByDefault method)
+        Node newNode = document.getDocumentElement();
+        for (Node node : nodes)
+            addNodeToFile(node, newNode, document, mode);
+        // Write  file
+        writeFile(document, outputFile);
     }
 
     /**
      * Method to write document into file
      *
-     * @param detDocument document ready to write into file
-     * @param file        write here
+     * @param document document ready to write into file
+     * @param file     write here
      * @throws TransformerException TransformerException
      * @throws IOException          IOException
-     * @see TransformerException
-     * @see IOException
      */
 
-    private void writeFile(Document detDocument, File file) throws TransformerException, IOException {
+    private void writeFile(Document document, File file) throws TransformerException, IOException {
         Transformer tr = TransformerFactory.newInstance().newTransformer();
-        DOMSource source = new DOMSource(detDocument);
+        DOMSource source = new DOMSource(document);
         FileOutputStream fos = new FileOutputStream(file);
         StreamResult result = new StreamResult(fos);
         tr.transform(source, result);
@@ -151,45 +163,52 @@ class Parser {
     /**
      * Method to convert node into new formatted nodes. After this writes these nodes into document
      *
-     * @param node        input node ready to convert
-     * @param newDHead    new node for detailed document
-     * @param newSHead    new node for summary document
-     * @param detDocument detailed document
-     * @param sumDocument summary document
+     * @param node     input node ready to convert
+     * @param newHead  new node for detailed document
+     * @param document detailed document
+     * @param mode     mode number here in static section
      */
 
-    private void addNodeToFiles(Node node, Node newDHead, Node newSHead, Document detDocument, Document sumDocument) {
+    private void addNodeToFile(Node node, Node newHead, Document document, int mode) {
         NodeList childList = node.getChildNodes();
-        // building node for detailed file
-        Element detNode = detDocument.createElement("offer");
-        for (int i = 0; i < childList.getLength(); i++) {
-            Node current = childList.item(i);
-            for (int j = 0; j < TableEntry.ENTRY_SIZE; j++) {
-                if (current.getNodeName().equals(TableEntry.tags[j])) {
-                    Element element = detDocument.createElement(current.getNodeName());
-                    element.setTextContent(current.getTextContent());
-                    detNode.appendChild(element);
+        switch (mode) {
+            case DET_MODE:
+                // building node for detailed file
+                Element detNode = document.createElement("offer");
+                for (int i = 0; i < childList.getLength(); i++) {
+                    Node current = childList.item(i);
+                    for (int j = 0; j < TableEntry.ENTRY_SIZE; j++) {
+                        if (current.getNodeName().equals(TableEntry.tags[j])) {
+                            Element element = document.createElement(current.getNodeName());
+                            element.setTextContent(current.getTextContent());
+                            detNode.appendChild(element);
+                        }
+                    }
                 }
-            }
-        }
-        // building node for summary file
-        Element sumNode = sumDocument.createElement("item");
-        Element id = sumDocument.createElement("id");
-        Element parent = sumDocument.createElement("parent");
-        Element innerItem = sumDocument.createElement("item");
-        parent.appendChild(innerItem);
-        sumNode.appendChild(id);
-        sumNode.appendChild(parent);
-        for (int i = 0; i < childList.getLength(); i++) {
-            Node current = childList.item(i);
-            if (current.getNodeName().equals("id"))
-                id.setTextContent(current.getTextContent());
-            else if (current.getNodeName().equals("parent"))
-                innerItem.setTextContent(current.getTextContent());
+                newHead.appendChild(detNode);
+                break;
+            case SUM_MODE:
+                // building node for summary file
+                Element sumNode = document.createElement("item");
+                Element id = document.createElement("id");
+                Element parent = document.createElement("parent");
+                Element innerItem = document.createElement("item");
+                parent.appendChild(innerItem);
+                sumNode.appendChild(id);
+                sumNode.appendChild(parent);
+                for (int i = 0; i < childList.getLength(); i++) {
+                    Node current = childList.item(i);
+                    if (current.getNodeName().equals("id"))
+                        id.setTextContent(current.getTextContent());
+                    else if (current.getNodeName().equals("parent"))
+                        innerItem.setTextContent(current.getTextContent());
 
+                }
+                newHead.appendChild(sumNode);
+                break;
+            default:
+                break;
         }
-        newDHead.appendChild(detNode);
-        newSHead.appendChild(sumNode);
     }
 
     /**
@@ -199,9 +218,6 @@ class Parser {
      * @throws ParserConfigurationException ParserConfigurationException
      * @throws IOException                  IOException
      * @throws SAXException                 SAXException
-     * @see ParserConfigurationException
-     * @see IOException
-     * @see SAXException
      */
 
     private void readFile(File file) throws ParserConfigurationException, IOException, SAXException {
@@ -228,31 +244,23 @@ class Parser {
      * @param file file to print info about
      */
     private void printFileInfo(File file) {
-        outputArea.append(String.format("%s\n[%6dKb] Modified %s\n", file.getAbsolutePath(),
-                file.length() / 1024, sdf.format(new Date(file.lastModified()))));
+        outputArea.append(String.format("%s\n[%6dKb] Modified %s\n", file.getAbsolutePath(), file.length() / 1024,
+                new SimpleDateFormat("YYYY-MM-dd HH:mm:ss").format(new Date(file.lastModified()))));
     }
 
     /**
-     * Write template to given file
-     *
      * @param file this file will be filled by template
+     * @throws IOException IOException
      */
-    private void fillFileByDefault(File file) {
-        sdf = new SimpleDateFormat("YYYY-MM-dd");
+    private void fillFileByDefault(File file) throws IOException {
         Date nowDate = new Date();
-        String outputFileHeader = "<?xml version =\"1.0\" encoding=\"UTF-8\"?>\n" +
-                "<КоммерческаяИнформация ВерсияСхемы=\"2.03\" ДатаФормирования=\"";
-        String outputFileDate = sdf.format(nowDate);
-        String outputFileFooter = "\">\n</КоммерческаяИнформация>";
-        try {
-            BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(
-                    new FileOutputStream(file), "UTF8"));
-            bw.write(outputFileHeader);
-            bw.write(outputFileDate);
-            bw.write(outputFileFooter);
-            bw.flush();
-        } catch (Exception e) {
-            outputArea.append(e.toString());
-        }
+        String outputFileString = "<?xml version =\"1.0\" encoding=\"UTF-8\"?>\n" +
+                "<КоммерческаяИнформация ВерсияСхемы=\"2.03\" ДатаФормирования=\"" +
+                new SimpleDateFormat("YYYY-MM-dd").format(nowDate) + "\">\n</КоммерческаяИнформация>";
+
+        BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(
+                new FileOutputStream(file), "UTF8"));
+        bw.write(outputFileString);
+        bw.flush();
     }
 }

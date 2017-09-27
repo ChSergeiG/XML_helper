@@ -76,6 +76,7 @@ class Workshop extends JPanel implements ActionListener {
                 break;
             case "Clear":
                 textArea.setText("");
+                break;
             case "Close":
                 System.exit(0);
                 break;
