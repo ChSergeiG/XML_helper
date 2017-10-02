@@ -5,7 +5,7 @@ package su.mpstsl.xml;
 
 import javax.swing.*;
 
-public class MainWindow extends JFrame {
+public class MainWindow extends JFrame  {
 
     private static final int POS_X = 400;
     private static final int POS_Y = 200;

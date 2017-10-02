@@ -21,11 +21,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 
-class Parser {
+class Parser implements Thread.UncaughtExceptionHandler {
     private static final int DET_MODE = 0;
     private static final int SUM_MODE = 1;
-    private static final char[] alphabet = {'а', 'б', 'в', 'г', 'д', 'е', 'ж', 'з', 'и', 'к', 'л', 'м', 'н', 'о', 'п',
-            'р', 'с', 'т', 'у', 'ф', 'х', 'ц', 'ч', 'ш', 'щ', 'ы', 'э', 'ю', 'я'};
 
     private ArrayList<Node> nodes;
     private MainWindow window;
@@ -104,16 +102,18 @@ class Parser {
             nodes = null;
             window.workshop.setParseButtonDisabled();
         } catch (TransformerException e) {
-            outputArea.append(e.getMessage() + "\n");
-            return;
+            uncaughtException(Thread.currentThread(),
+                    new RuntimeException(e.getCause() + " (" + e.getException() + ")\n\t" + e.getMessageAndLocation()));
         } catch (ParserConfigurationException e) {
-            outputArea.append(e.getMessage() + "\n");
-            return;
+            uncaughtException(Thread.currentThread(),
+                    new RuntimeException(e.getCause() + "\n\t" + e.getLocalizedMessage()));
         } catch (SAXException e) {
-            outputArea.append(e.getMessage() + "\n");
+            uncaughtException(Thread.currentThread(),
+                    new RuntimeException("SAXexception: " + e.getMessage()));
+
         } catch (IOException e) {
-            outputArea.append(e.getMessage() + "\n");
-            return;
+            uncaughtException(Thread.currentThread(),
+                    new RuntimeException(e.getCause() + "\n\t" + e.getMessage() + ". " + e.getStackTrace()[0]));
         }
     }
 
@@ -262,5 +262,12 @@ class Parser {
                 new FileOutputStream(file), "UTF8"));
         bw.write(outputFileString);
         bw.flush();
+    }
+
+    @Override
+    public void uncaughtException(Thread t, Throwable e) {
+        String message = "Unexpected situation in thread " + t.getName() + ".\n\t" +
+                e.getStackTrace()[0] + " " + e.getMessage();
+        JOptionPane.showMessageDialog(null, message, "Exception", JOptionPane.ERROR_MESSAGE);
     }
 }

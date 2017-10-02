@@ -6,12 +6,17 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 
-class Workshop extends JPanel implements ActionListener {
+class Workshop extends JPanel implements ActionListener, Thread.UncaughtExceptionHandler {
 
     private File wd;
-    JTextArea textArea;
+    JTextArea textArea = new JTextArea(20, 75);
     private Parser parser;
-    private JButton btnParse;
+
+    private final JButton jbFiles = new JButton("Files");
+    private final JButton jbParse = new JButton("Parse");
+    private final JButton jbClear = new JButton("Clear");
+    private final JButton jbClose = new JButton("Close");
+
     private MainWindow window;
 
     /**
@@ -22,31 +27,26 @@ class Workshop extends JPanel implements ActionListener {
     Workshop(MainWindow window) {
         this.window = window;
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        textArea = new JTextArea(20, 75);
-        JScrollPane scrlTextAres = new JScrollPane(textArea, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
+        JScrollPane jspTextArea = new JScrollPane(textArea, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
                 JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         textArea.setEditable(false);
         textArea.append("---------------------------------------------------------------------------\n");
         textArea.setText("");
         textArea.setFont(new Font("Consolas", Font.PLAIN, 12));
-        JButton btnFiles = new JButton("Files");
-        btnParse = new JButton("Parse");
-        JButton btnClearTextArea = new JButton("Clear");
-        JButton btnClose = new JButton("Close");
-        btnParse.setEnabled(false);
-        Box center = new Box(BoxLayout.Y_AXIS);
-        add(BorderLayout.CENTER, center);
-        center.add(scrlTextAres);
-        Box south = new Box(BoxLayout.X_AXIS);
-        add(BorderLayout.SOUTH, south);
-        south.add(btnFiles);
-        south.add(btnParse);
-        south.add(btnClearTextArea);
-        south.add(btnClose);
-        btnFiles.addActionListener(this);
-        btnParse.addActionListener(this);
-        btnClearTextArea.addActionListener(this);
-        btnClose.addActionListener(this);
+        jbParse.setEnabled(false);
+        Box bCenter = new Box(BoxLayout.Y_AXIS);
+        add(BorderLayout.CENTER, bCenter);
+        bCenter.add(jspTextArea);
+        Box bSouth = new Box(BoxLayout.X_AXIS);
+        add(BorderLayout.SOUTH, bSouth);
+        bSouth.add(jbFiles);
+        bSouth.add(jbParse);
+        bSouth.add(jbClear);
+        bSouth.add(jbClose);
+        jbFiles.addActionListener(this);
+        jbParse.addActionListener(this);
+        jbClear.addActionListener(this);
+        jbClose.addActionListener(this);
     }
 
     /**
@@ -54,34 +54,37 @@ class Workshop extends JPanel implements ActionListener {
      */
 
     void setParseButtonDisabled() {
-        btnParse.setEnabled(false);
+        jbParse.setEnabled(false);
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        switch (e.getActionCommand()) {
-            case "Files":
-                JFileChooser setWD = new JFileChooser(System.getProperty("user.home"));
-                setWD.setDialogType(JFileChooser.OPEN_DIALOG);
-                setWD.showDialog(window, "This one");
-                wd = setWD.getCurrentDirectory();
-                textArea.append("Selected path: " + wd.getPath() + "\n");
-                btnParse.setEnabled(true);
-                break;
-            case "Parse":
-                if (wd != null) {
-                    parser = new Parser(window, wd);
-                    parser.parseIt();
-                }
-                break;
-            case "Clear":
-                textArea.setText("");
-                break;
-            case "Close":
-                System.exit(0);
-                break;
-            default:
-                break;
+        Object source = e.getSource();
+        if (source.equals(jbFiles)) {
+            JFileChooser setWD = new JFileChooser(System.getProperty("user.home"));
+            setWD.setDialogType(JFileChooser.OPEN_DIALOG);
+            setWD.showDialog(window, "This one");
+            wd = setWD.getCurrentDirectory();
+            textArea.append("Selected path: " + wd.getPath() + "\n");
+            jbParse.setEnabled(true);
+        } else if (source.equals(jbParse)) {
+            if (wd != null) {
+                parser = new Parser(window, wd);
+                parser.parseIt();
+            }
+        } else if (source.equals(jbClear)) {
+            textArea.setText("");
+        } else if (source.equals(jbClose)) {
+            System.exit(0);
+        } else {
+            uncaughtException(Thread.currentThread(),
+                    new RuntimeException("Unexpected action (" + e.getActionCommand() + ")"));
         }
+    }
+
+    @Override
+    public void uncaughtException(Thread t, Throwable e) {
+        String message = "Unexpected situation in thread " + t.getName() + ".\n\t" + e.getMessage();
+        JOptionPane.showMessageDialog(null, message, "Exception", JOptionPane.ERROR_MESSAGE);
     }
 }
