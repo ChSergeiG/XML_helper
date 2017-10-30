@@ -11,11 +11,11 @@ import java.io.File;
 
 public class MainWindow extends JFrame implements ActionListener, Thread.UncaughtExceptionHandler {
 
-    private static final int POS_X = 400;
-    private static final int POS_Y = 200;
-    private static final int WINDOW_WIDTH = 700;
-    private static final int WINDOW_HEIGHT = 500;
-    private static final String WINDOW_NAME = "XML helper v 0.20";
+    private static final int POS_X = 100;
+    private static final int POS_Y = 100;
+    private static final int WINDOW_WIDTH = 900;
+    private static final int WINDOW_HEIGHT = 700;
+    private static final String WINDOW_NAME = "XML helper v 0.22";
 
     private final JButton jbFiles = new JButton("Указать файлы");
     private final JButton jbExcFile = new JButton("Указать файл остатков");
@@ -29,7 +29,6 @@ public class MainWindow extends JFrame implements ActionListener, Thread.Uncaugh
 
     private File workingDirectory = null;
     private File remainderFile = null;
-    private Parser parser;
 
     /**
      * Main window constructor
@@ -38,7 +37,6 @@ public class MainWindow extends JFrame implements ActionListener, Thread.Uncaugh
         setLocation(POS_X, POS_Y);
         setSize(WINDOW_WIDTH, WINDOW_HEIGHT);
         setTitle(WINDOW_NAME);
-
 
         JMenuBar jmTopBar = new JMenuBar();
         JMenu jmFile = new JMenu("Файл");
@@ -58,7 +56,6 @@ public class MainWindow extends JFrame implements ActionListener, Thread.Uncaugh
         jpCentralPanel.add(jspTextArea);
         jtaLog.setEditable(false);
         jtaLog.setFont(new Font("Consolas", Font.PLAIN, 12));
-
 
         JPanel jpBottomPanel = new JPanel();
         jpBottomPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -106,34 +103,39 @@ public class MainWindow extends JFrame implements ActionListener, Thread.Uncaugh
     }
 
     void putLog(String message) {
+
         jtaLog.append(message + "\n");
     }
 
+    /**
+     * Active elements actions
+     *
+     * @param e event
+     */
     @Override
     public void actionPerformed(ActionEvent e) {
         Object source = e.getSource();
         if (source.equals(jbFiles)) {
 //            JFileChooser setWD = new JFileChooser(System.getProperty("user.home"));
+//            setWD.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
 //            setWD.setDialogType(JFileChooser.OPEN_DIALOG);
-//            setWD.showDialog(this, "This one");
-//            workingDirectory = setWD.getCurrentDirectory();
-            workingDirectory = new File("C:\\Users\\chser\\IdeaProjects\\XML_helper\\targets\\in\\");
-
+//            setWD.showDialog(this, "Выбрать папку");
+//            workingDirectory = setWD.getSelectedFile();
+            workingDirectory = new File("C:\\Users\\chser\\Desktop\\targets\\in");
             putLog("Директория с файлами: " + workingDirectory.getPath());
-            jbParse.setEnabled(!workingDirectory.equals(null) && !remainderFile.equals(null));
+            jbParse.setEnabled(workingDirectory != null && remainderFile != null);
         } else if (source.equals(jbExcFile)) {
 //            JFileChooser setEF = new JFileChooser(System.getProperty("user.home"));
 //            setEF.setDialogType(JFileChooser.OPEN_DIALOG);
-//            setEF.showDialog(this, "This one");
+//            setEF.showDialog(this, "Выбрать файл");
 //            remainderFile = setEF.getSelectedFile();
-
-            remainderFile = new File("C:\\Users\\chser\\IdeaProjects\\XML_helper\\targets\\in\\catalogue_products_short.xml");
+            remainderFile = new File("C:\\Users\\chser\\Desktop\\targets\\in\\catalogue_products_short.xml");
             putLog("Файл остатков: " + remainderFile.getPath());
-            jbParse.setEnabled(!workingDirectory.equals(null) && !remainderFile.equals(null));
+            jbParse.setEnabled(workingDirectory != null && remainderFile != null);
         } else if (source.equals(jbParse)) {
             if (workingDirectory != null) {
-                parser = new Parser(this, workingDirectory, remainderFile);
-                parser.parseIt();
+                Parser.initConstants(this, workingDirectory, remainderFile);
+                Parser.parseIt();
                 workingDirectory = null;
                 remainderFile = null;
                 jbParse.setEnabled(false);
@@ -152,6 +154,12 @@ public class MainWindow extends JFrame implements ActionListener, Thread.Uncaugh
                     new RuntimeException("Неверное действие (" + e.getActionCommand() + ")"));
     }
 
+    /**
+     * Unexpected situation. What to do?
+     *
+     * @param t thread, generated exception
+     * @param e exception
+     */
     @Override
     public void uncaughtException(Thread t, Throwable e) {
         String message = "В потоке " + t.getName() + " произошло что-то неожиданное.\n\tА именно: " + e.getMessage();

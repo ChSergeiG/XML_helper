@@ -18,112 +18,171 @@ import javax.xml.transform.stream.StreamResult;
 import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 
-class Parser implements Thread.UncaughtExceptionHandler {
+class Parser {
     private static final int DET_MODE = 0;
     private static final int SUM_MODE = 1;
 
-    private ArrayList<Node> nodes;
-    private MainWindow window;
-    private File[] inputFiles;
-    private File workingDirectory;
-    private File remainderFile;
+    private static HashMap<String, Node> nodes;
+    private static HashMap<String, String[]> update;
+
+    private static MainWindow window;
+    private static ArrayList<File> inputFiles;
+    private static File workingDirectory;
+    private static File remainderFile;
 
     /**
-     * Parser constructor.
+     * Initialize some constants inside Parser
      *
-     * @param window           main window of this app
-     * @param workingDirectory working directory, we are working in and near
+     * @param wnd        Window, called this method. In this case - main window of application
+     * @param wDirectory Directory, marked as working by user
+     * @param rFile      File, containing updated information about goods
      */
-    Parser(MainWindow window, File workingDirectory, File remainderFile) {
-        this.window = window;
-        this.workingDirectory = workingDirectory;
-        this.remainderFile = remainderFile;
-        nodes = new ArrayList<>();
-        inputFiles = workingDirectory.listFiles();
-        checkFiles();
+    static void initConstants(MainWindow wnd, File wDirectory, File rFile) {
+        window = wnd;
+        workingDirectory = wDirectory;
+        remainderFile = rFile;
+        inputFiles = buildFilesArray();
+        nodes = buildNodesMap("offer");
     }
 
     /**
-     * Check file extensions
+     * Method to build ArrayList with target files
+     *
+     * @return target files
      */
-    private void checkFiles() {
-        File[] checkedFiles = new File[0];
-        for (File file : inputFiles) {
+    private static ArrayList<File> buildFilesArray() {
+        ArrayList<File> result = new ArrayList<>();
+        rAddFilesToArray(workingDirectory, result);
+        return result;
+    }
+
+    /**
+     * Recursive method to find every xml in working folder and its subfolders.
+     *
+     * @param workingDirectory directory to find target xml`s
+     * @param result           ArrayList link, to place founded File objects
+     */
+    private static void rAddFilesToArray(File workingDirectory, ArrayList<File> result) {
+        File[] fileList = workingDirectory.listFiles();
+        if (fileList == null) return;
+        for (File file : fileList) {
             String name = file.getName();
-            if (name.substring(name.length() - 4, name.length()).equals(".xml"))
-                checkedFiles = pushFileToArray(checkedFiles, file);
+            int lastDotIndex = name.lastIndexOf('.');
+            String ext = (lastDotIndex == -1) ? "" : name.substring(lastDotIndex + 1);
+            if (file.isDirectory())
+                rAddFilesToArray(file, result);
+            if (!file.equals(remainderFile) && ext.equals("xml")) {
+                result.add(file);
+            }
         }
-        inputFiles = checkedFiles;
     }
 
     /**
-     * Push file into file array
+     * Method to build HashMap with nodes. Key is ID of node.
      *
-     * @param array array with files
-     * @param file  file to push
-     * @return updated array
+     * @param parentName tagname to find in xml inputFiles
+     * @return Hashmap with nodes and its unique ID as keys
      */
+    private static HashMap<String, Node> buildNodesMap(String parentName) {
+        HashMap<String, Node> result = new HashMap<>();
+        try {
+            if (parentName.equals("offer")) window.putLog("Обрабатываемые файлы:");
+            for (File file2parse : inputFiles) {
+                if (parentName.equals("offer")) printFileInfo(file2parse);
+                DocumentBuilder documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+                Document document = documentBuilder.parse(file2parse);
+                Node head = document.getDocumentElement();
+                NodeList nodes = head.getChildNodes();
+                for (int i = 0; i < nodes.getLength(); i++) {
+                    NodeList childs = nodes.item(i).getChildNodes();
+                    String id = null;
+                    for (int j = 0; j < childs.getLength(); j++) {
+                        if (childs.item(j).getNodeName().equals(TableEntry.tags[0]))
+                            id = childs.item(j).getTextContent();
+                    }
 
-    private File[] pushFileToArray(File[] array, File file) {
-        File[] newFileArray = Arrays.copyOf(array, array.length + 1);
-        newFileArray[array.length] = file;
-        return newFileArray;
+                    if (id != null) {
+                        if (id.length() > 4) {
+                            if (result.containsKey(id)) window.putLog("*** -> " + id + " - ID дубликат");
+                            if (nodes.item(i).getNodeName().equals(parentName)) result.put(id, nodes.item(i));
+                        }
+                    }
+                }
+            }
+        } catch (ParserConfigurationException e) {
+            reportException(Thread.currentThread(),
+                    new RuntimeException(e.getCause() + "\n\t" + e.getLocalizedMessage()));
+        } catch (SAXException e) {
+            reportException(Thread.currentThread(),
+                    new RuntimeException("SAXexception: " + e.getMessage()));
+
+        } catch (IOException e) {
+            reportException(Thread.currentThread(),
+                    new RuntimeException(e.getCause() + "\n\t" + e.getMessage() + ". " + e.getStackTrace()[0]));
+        }
+        return result;
     }
 
     /**
-     * General method to parse files in 'File workingDirectory'.
+     * main-like procedure sequence to read every input file, get nodes, parse it and write back to target files.
      */
-
-    void parseIt() {
+    static void parseIt() {
         try {
             long start = System.nanoTime();
             int[] modes = {DET_MODE, SUM_MODE};
             String[] filePaths = {"\\catalogue_products.xml", "\\products_to_categories.xml"};
-            window.putLog("Files to parse:");
-            // Parse all files in target folder
-            for (File file : inputFiles) {
-                readFile(file);
-                printFileInfo(file);
-            }
-            updateNodes();
-            window.putLog("-------------------------------------\nOutput files:");
+            update = buildUpdateMap(remainderFile);
+            window.putLog("-------------------------------------\n" +
+                    updateNodes(nodes, update) + "\nФайлы для загрузки:");
             for (int i = 0; i < filePaths.length; i++) {
                 // Define location for output file
                 File outputFile = new File(workingDirectory.getParent() + filePaths[i]);
                 pushDocumentToFile(outputFile, nodes, modes[i]);
                 printFileInfo(outputFile);
             }
-            window.putLog("-------------------------------------\n#nodes: " + nodes.size());
-            long time = (System.nanoTime() - start) / 1000 / 1000;
-            window.putLog("Completed without errors in " + time + " ms");
+            window.putLog("-------------------------------------\nВсего обработано уникальных записей: " +
+                    nodes.size());
+            long time = (System.nanoTime() - start) / 1000000;
+            window.putLog("Завершено без ошибок за " + time + " мс");
             nodes = null;
             //window.workshop.setParseButtonDisabled();
         } catch (TransformerException e) {
-            uncaughtException(Thread.currentThread(),
+            reportException(Thread.currentThread(),
                     new RuntimeException(e.getCause() + " (" + e.getException() + ")\n\t" + e.getMessageAndLocation()));
         } catch (ParserConfigurationException e) {
-            uncaughtException(Thread.currentThread(),
+            reportException(Thread.currentThread(),
                     new RuntimeException(e.getCause() + "\n\t" + e.getLocalizedMessage()));
         } catch (SAXException e) {
-            uncaughtException(Thread.currentThread(),
+            reportException(Thread.currentThread(),
                     new RuntimeException("SAXexception: " + e.getMessage()));
 
         } catch (IOException e) {
-            uncaughtException(Thread.currentThread(),
+            reportException(Thread.currentThread(),
                     new RuntimeException(e.getCause() + "\n\t" + e.getMessage() + ". " + e.getStackTrace()[0]));
         }
     }
 
-    private void updateNodes() throws ParserConfigurationException, IOException, SAXException {
-        DocumentBuilder rfDocumentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-        Document rfDocument = rfDocumentBuilder.parse(remainderFile);
-        Node rfHead = rfDocument.getDocumentElement();
-        NodeList updatedOffers = rfHead.getChildNodes();
-        HashMap<String, String[]> updateMap = new HashMap<>();
+    /**
+     * Method to build update HashMap
+     *
+     * @param remainderFile actual information about nodes
+     * @return Map with pairs ID - String array with actual parameters for ID
+     * @throws ParserConfigurationException Parser Configuration Exc
+     * @throws IOException                  IO Exc
+     * @throws SAXException                 SAX Exc
+     */
+
+    private static HashMap<String, String[]> buildUpdateMap(File remainderFile)
+            throws ParserConfigurationException, IOException, SAXException {
+        DocumentBuilder documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+        Document document = documentBuilder.parse(remainderFile);
+        Node head = document.getDocumentElement();
+        NodeList updatedOffers = head.getChildNodes();
+        HashMap<String, String[]> result = new HashMap<>();
         // Build update map
         for (int i = 0; i < updatedOffers.getLength(); i++) {
             Node rfOffer = updatedOffers.item(i);
@@ -156,22 +215,59 @@ class Parser implements Thread.UncaughtExceptionHandler {
                             break;
                     }
                 }
-                updateMap.put(id, values);
+                if (id != null) result.put(id, values);
             }
         }
+        return result;
+    }
 
-        for (int i = 0; i < nodes.size(); i++) {
-            Node node = nodes.get(i);
-            NodeList childs = node.getChildNodes();
-            if (updateMap.containsKey(childs.item(1).getTextContent())) {
-                System.out.println(childs);
-                break;
+    /**
+     * Method to update parsed nodes with actual parameters from remainderFile
+     *
+     * @param nodes  list of nodes to update
+     * @param update actual information about nodes in corresponding ArrayList
+     * @return string with information about update process results
+     */
+    private static String updateNodes(HashMap<String, Node> nodes, HashMap<String, String[]> update) {
+        int count = 0;
+        StringBuilder sb = new StringBuilder();
+        for (String key : nodes.keySet()) {
+            if (update.containsKey(key)) {
+                count++;
+                String[] updt = update.get(key);
+                NodeList childs = nodes.get(key).getChildNodes();
+                for (int i = 0; i < childs.getLength(); i++) {
+                    String nodeName = childs.item(i).getNodeName();
+                    switch (nodeName) {
+                        case "price":
+                            childs.item(i).setTextContent(updt[0]);
+                            break;
+                        case "quantity":
+                            childs.item(i).setTextContent(updt[1]);
+                            break;
+                        case "status":
+                            childs.item(i).setTextContent(updt[2]);
+                            break;
+                        case "novelty":
+                            childs.item(i).setTextContent(updt[3]);
+                            break;
+                        case "priority":
+                            childs.item(i).setTextContent(updt[4]);
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            } else if (key.length() > 4) {
+                if (sb.length() == 0) sb.append("*** В остатках отсутствуют: ");
+                sb.append(key);
+                sb.append(", ");
             }
-
-
         }
-
-
+        sb.delete(sb.length() - 2, sb.length());
+        sb.append(".\nЧисло  обновленных записей: ");
+        sb.append(count);
+        return sb.toString();
     }
 
     /**
@@ -183,8 +279,10 @@ class Parser implements Thread.UncaughtExceptionHandler {
      * @throws SAXException                 SAXException
      * @throws TransformerException         TransformerException
      */
-    private void pushDocumentToFile(File outputFile, ArrayList<Node> nodes, int mode)
+    private static void pushDocumentToFile(File outputFile, HashMap<String, Node> nodes, int mode)
             throws IOException, ParserConfigurationException, SAXException, TransformerException {
+        // Get node list
+        Collection<Node> nodeList = nodes.values();
         // Fill files by default (bicycle-bicycle)
         fillFileByDefault(outputFile);
         // Builders for file
@@ -193,8 +291,9 @@ class Parser implements Thread.UncaughtExceptionHandler {
         Document document = documentBuilder.parse(outputFile);
         // Get parent element (it was created by fillFileByDefault method)
         Node newNode = document.getDocumentElement();
-        for (Node node : nodes)
+        for (Node node : nodeList)
             addNodeToFile(node, newNode, document, mode);
+
         // Write  file
         writeFile(document, outputFile);
     }
@@ -208,7 +307,7 @@ class Parser implements Thread.UncaughtExceptionHandler {
      * @throws IOException          IOException
      */
 
-    private void writeFile(Document document, File file) throws TransformerException, IOException {
+    private static void writeFile(Document document, File file) throws TransformerException, IOException {
         Transformer tr = TransformerFactory.newInstance().newTransformer();
         DOMSource source = new DOMSource(document);
         FileOutputStream fos = new FileOutputStream(file);
@@ -226,7 +325,7 @@ class Parser implements Thread.UncaughtExceptionHandler {
      * @param mode     mode number here in static section
      */
 
-    private void addNodeToFile(Node node, Node newHead, Document document, int mode) {
+    private static void addNodeToFile(Node node, Node newHead, Document document, int mode) {
         NodeList childList = node.getChildNodes();
         switch (mode) {
             case DET_MODE:
@@ -259,7 +358,6 @@ class Parser implements Thread.UncaughtExceptionHandler {
                         id.setTextContent(current.getTextContent());
                     else if (current.getNodeName().equals("parent"))
                         innerItem.setTextContent(current.getTextContent());
-
                 }
                 newHead.appendChild(sumNode);
                 break;
@@ -269,50 +367,21 @@ class Parser implements Thread.UncaughtExceptionHandler {
     }
 
     /**
-     * Method to read file and write "offer" nodes to global ArrayList&lt;Nodes&gt; nodes
-     *
-     * @param file file to read
-     * @throws ParserConfigurationException ParserConfigurationException
-     * @throws IOException                  IOException
-     * @throws SAXException                 SAXException
-     */
-
-    private void readFile(File file) throws ParserConfigurationException, IOException, SAXException {
-        // Do not apply method to file with remainders
-        if (file.equals(remainderFile))
-            return;
-        // For every file in folder create document builder and document to build
-        DocumentBuilder documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-        Document document = documentBuilder.parse(file);
-        // Root element for "file"
-        Node head = document.getDocumentElement();
-        // Get all child nodes from root and place it in list
-        NodeList offers = head.getChildNodes();
-        for (int i = 0; i < offers.getLength(); i++) {
-            Node offer = offers.item(i);
-            // consider only nodes with <offer> tag
-            if (offer.getNodeName().equals("offer")) {
-                offer.normalize();
-                nodes.add(offer);
-            }
-        }
-    }
-
-    /**
      * Only to print info about file into text area
      *
      * @param file file to print info about
      */
-    private void printFileInfo(File file) {
-        window.putLog(String.format("%s\n[%6dKb] Modified %s", file.getAbsolutePath(), file.length() / 1024,
-                new SimpleDateFormat("YYYY-MM-dd HH:mm:ss").format(new Date(file.lastModified()))));
+    private static void printFileInfo(File file) {
+        window.putLog(String.format("[%8db] Modified %s  %s", file.length(),
+                new SimpleDateFormat("YYYY-MM-dd HH:mm").format(new Date(file.lastModified())),
+                file.getPath()));
     }
 
     /**
      * @param file this file will be filled by template
      * @throws IOException IOException
      */
-    private void fillFileByDefault(File file) throws IOException {
+    private static void fillFileByDefault(File file) throws IOException {
         Date nowDate = new Date();
         String outputFileString = "<?xml version =\"1.0\" encoding=\"UTF-8\"?>\n" +
                 "<КоммерческаяИнформация ВерсияСхемы=\"2.03\" ДатаФормирования=\"" +
@@ -324,8 +393,14 @@ class Parser implements Thread.UncaughtExceptionHandler {
         bw.flush();
     }
 
-    @Override
-    public void uncaughtException(Thread t, Throwable e) {
+    /**
+     * Method to display information about runtime exception
+     *
+     * @param t thread, generated exception
+     * @param e exception
+     */
+
+    private static void reportException(Thread t, Throwable e) {
         String message = "Unexpected situation in thread " + t.getName() + ".\n\t" +
                 e.getStackTrace()[0] + " " + e.getMessage();
         JOptionPane.showMessageDialog(null, message, "Exception", JOptionPane.ERROR_MESSAGE);
