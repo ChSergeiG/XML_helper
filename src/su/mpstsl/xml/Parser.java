@@ -20,6 +20,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 
 class Parser implements Thread.UncaughtExceptionHandler {
     private static final int DET_MODE = 0;
@@ -27,23 +28,22 @@ class Parser implements Thread.UncaughtExceptionHandler {
 
     private ArrayList<Node> nodes;
     private MainWindow window;
-
-    private JTextArea outputArea;
     private File[] inputFiles;
-    private File wd;
+    private File workingDirectory;
+    private File remainderFile;
 
     /**
      * Parser constructor.
      *
-     * @param window main window of this app
-     * @param wd     working directory, we are working in and near
+     * @param window           main window of this app
+     * @param workingDirectory working directory, we are working in and near
      */
-    Parser(MainWindow window, File wd) {
+    Parser(MainWindow window, File workingDirectory, File remainderFile) {
         this.window = window;
-        this.wd = wd;
+        this.workingDirectory = workingDirectory;
+        this.remainderFile = remainderFile;
         nodes = new ArrayList<>();
-        outputArea = window.workshop.textArea;
-        inputFiles = wd.listFiles();
+        inputFiles = workingDirectory.listFiles();
         checkFiles();
     }
 
@@ -75,7 +75,7 @@ class Parser implements Thread.UncaughtExceptionHandler {
     }
 
     /**
-     * General method to parse files in 'File wd'.
+     * General method to parse files in 'File workingDirectory'.
      */
 
     void parseIt() {
@@ -83,24 +83,25 @@ class Parser implements Thread.UncaughtExceptionHandler {
             long start = System.nanoTime();
             int[] modes = {DET_MODE, SUM_MODE};
             String[] filePaths = {"\\catalogue_products.xml", "\\products_to_categories.xml"};
-            outputArea.append("Files to parse:\n");
+            window.putLog("Files to parse:");
             // Parse all files in target folder
             for (File file : inputFiles) {
                 readFile(file);
                 printFileInfo(file);
             }
-            outputArea.append("-------------------------------------\nOutput files:\n");
+            updateNodes();
+            window.putLog("-------------------------------------\nOutput files:");
             for (int i = 0; i < filePaths.length; i++) {
                 // Define location for output file
-                File outputFile = new File(wd.getParent() + filePaths[i]);
+                File outputFile = new File(workingDirectory.getParent() + filePaths[i]);
                 pushDocumentToFile(outputFile, nodes, modes[i]);
                 printFileInfo(outputFile);
             }
-            outputArea.append("-------------------------------------\n#nodes: " + nodes.size() + "\n");
+            window.putLog("-------------------------------------\n#nodes: " + nodes.size());
             long time = (System.nanoTime() - start) / 1000 / 1000;
-            outputArea.append("Completed without errors in " + time + " ms\n");
+            window.putLog("Completed without errors in " + time + " ms");
             nodes = null;
-            window.workshop.setParseButtonDisabled();
+            //window.workshop.setParseButtonDisabled();
         } catch (TransformerException e) {
             uncaughtException(Thread.currentThread(),
                     new RuntimeException(e.getCause() + " (" + e.getException() + ")\n\t" + e.getMessageAndLocation()));
@@ -115,6 +116,62 @@ class Parser implements Thread.UncaughtExceptionHandler {
             uncaughtException(Thread.currentThread(),
                     new RuntimeException(e.getCause() + "\n\t" + e.getMessage() + ". " + e.getStackTrace()[0]));
         }
+    }
+
+    private void updateNodes() throws ParserConfigurationException, IOException, SAXException {
+        DocumentBuilder rfDocumentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+        Document rfDocument = rfDocumentBuilder.parse(remainderFile);
+        Node rfHead = rfDocument.getDocumentElement();
+        NodeList updatedOffers = rfHead.getChildNodes();
+        HashMap<String, String[]> updateMap = new HashMap<>();
+        // Build update map
+        for (int i = 0; i < updatedOffers.getLength(); i++) {
+            Node rfOffer = updatedOffers.item(i);
+            if (rfOffer.getNodeName().equals("offer")) {
+                NodeList rfOfferChilds = rfOffer.getChildNodes();
+                String[] values = new String[5];
+                String id = null;
+                for (int j = 0; j < rfOfferChilds.getLength(); j++) {
+                    Node rfOfferChild = rfOfferChilds.item(j);
+                    switch (rfOfferChild.getNodeName()) {
+                        case "id":
+                            id = rfOfferChild.getTextContent();
+                            break;
+                        case "price":
+                            values[0] = rfOfferChild.getTextContent();
+                            break;
+                        case "quantity":
+                            values[1] = rfOfferChild.getTextContent();
+                            break;
+                        case "status":
+                            values[2] = rfOfferChild.getTextContent();
+                            break;
+                        case "novelty":
+                            values[3] = rfOfferChild.getTextContent();
+                            break;
+                        case "priority":
+                            values[4] = rfOfferChild.getTextContent();
+                            break;
+                        default:
+                            break;
+                    }
+                }
+                updateMap.put(id, values);
+            }
+        }
+
+        for (int i = 0; i < nodes.size(); i++) {
+            Node node = nodes.get(i);
+            NodeList childs = node.getChildNodes();
+            if (updateMap.containsKey(childs.item(1).getTextContent())) {
+                System.out.println(childs);
+                break;
+            }
+
+
+        }
+
+
     }
 
     /**
@@ -221,6 +278,9 @@ class Parser implements Thread.UncaughtExceptionHandler {
      */
 
     private void readFile(File file) throws ParserConfigurationException, IOException, SAXException {
+        // Do not apply method to file with remainders
+        if (file.equals(remainderFile))
+            return;
         // For every file in folder create document builder and document to build
         DocumentBuilder documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
         Document document = documentBuilder.parse(file);
@@ -244,7 +304,7 @@ class Parser implements Thread.UncaughtExceptionHandler {
      * @param file file to print info about
      */
     private void printFileInfo(File file) {
-        outputArea.append(String.format("%s\n[%6dKb] Modified %s\n", file.getAbsolutePath(), file.length() / 1024,
+        window.putLog(String.format("%s\n[%6dKb] Modified %s", file.getAbsolutePath(), file.length() / 1024,
                 new SimpleDateFormat("YYYY-MM-dd HH:mm:ss").format(new Date(file.lastModified()))));
     }
 
