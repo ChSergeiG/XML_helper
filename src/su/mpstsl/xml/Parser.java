@@ -10,6 +10,7 @@ import javax.swing.*;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
@@ -17,17 +18,18 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.*;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Date;
-import java.util.HashMap;
+import java.util.*;
 
 class Parser {
     private static final int DET_MODE = 0;
     private static final int SUM_MODE = 1;
+    private static final int DOUBLES_MODE = 2;
 
-    private static HashMap<String, Node> nodes;
-    private static HashMap<String, String[]> update;
+    private static final int OFFER = 0;
+    private static final int DOUBLES = 1;
+
+    private static HashMap<String, Node> offerNodes;
+    private static HashMap<String, Node> doublesNodes;
 
     private static MainWindow window;
     private static ArrayList<File> inputFiles;
@@ -46,7 +48,8 @@ class Parser {
         workingDirectory = wDirectory;
         remainderFile = rFile;
         inputFiles = buildFilesArray();
-        nodes = buildNodesMap("offer");
+        offerNodes = buildNodesMap(OFFER);
+        doublesNodes = buildNodesMap(DOUBLES);
     }
 
     /**
@@ -81,34 +84,30 @@ class Parser {
         }
     }
 
-    /**
-     * Method to build HashMap with nodes. Key is ID of node.
-     *
-     * @param parentName tagname to find in xml inputFiles
-     * @return Hashmap with nodes and its unique ID as keys
-     */
-    private static HashMap<String, Node> buildNodesMap(String parentName) {
+    private static HashMap<String, Node> buildNodesMap(int mode) {
         HashMap<String, Node> result = new HashMap<>();
         try {
-            if (parentName.equals("offer")) window.putLog("Обрабатываемые файлы:");
+            if (mode == OFFER) window.putLog("Обрабатываемые файлы:");
             for (File file2parse : inputFiles) {
-                if (parentName.equals("offer")) printFileInfo(file2parse);
+                if (mode == OFFER) printFileInfo(file2parse);
                 DocumentBuilder documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
                 Document document = documentBuilder.parse(file2parse);
                 Node head = document.getDocumentElement();
                 NodeList nodes = head.getChildNodes();
                 for (int i = 0; i < nodes.getLength(); i++) {
+                    if (mode == OFFER && !nodes.item(i).getNodeName().equals("offer")) continue;
+                    if (mode == DOUBLES && !nodes.item(i).getNodeName().equals("item")) continue;
                     NodeList childs = nodes.item(i).getChildNodes();
                     String id = null;
                     for (int j = 0; j < childs.getLength(); j++) {
                         if (childs.item(j).getNodeName().equals(TableEntry.tags[0]))
                             id = childs.item(j).getTextContent();
                     }
-
                     if (id != null) {
                         if (id.length() > 4) {
-                            if (result.containsKey(id)) window.putLog("*** -> " + id + " - ID дубликат");
-                            if (nodes.item(i).getNodeName().equals(parentName)) result.put(id, nodes.item(i));
+                            if (mode == OFFER && result.containsKey(id))
+                                window.putLog("*** -> " + id + " - ID дубликат");
+                            result.put(id, nodes.item(i));
                         }
                     }
                 }
@@ -127,28 +126,29 @@ class Parser {
         return result;
     }
 
+
     /**
-     * main-like procedure sequence to read every input file, get nodes, parse it and write back to target files.
+     * main-like procedure sequence to read every input file, get offerNodes, parse it and write back to target files.
      */
     static void parseIt() {
         try {
             long start = System.nanoTime();
-            int[] modes = {DET_MODE, SUM_MODE};
-            String[] filePaths = {"\\catalogue_products.xml", "\\products_to_categories.xml"};
-            update = buildUpdateMap(remainderFile);
-            window.putLog("-------------------------------------\n" +
-                    updateNodes(nodes, update) + "\nФайлы для загрузки:");
+            int[] modes = {DET_MODE, SUM_MODE, DOUBLES_MODE};
+            String[] filePaths = {"\\catalogue_products.xml", "\\products_to_categories.xml", "\\doubles.xml"};
+            HashMap<String, String[]> update = buildUpdateMap(remainderFile);
+            window.putLog("-------------------------------------\n" + updateNodes(offerNodes, update) +
+                    "\nФайлы для загрузки:");
             for (int i = 0; i < filePaths.length; i++) {
                 // Define location for output file
                 File outputFile = new File(workingDirectory.getParent() + filePaths[i]);
-                pushDocumentToFile(outputFile, nodes, modes[i]);
+                pushDocumentToFile(outputFile, modes[i]);
                 printFileInfo(outputFile);
             }
             window.putLog("-------------------------------------\nВсего обработано уникальных записей: " +
-                    nodes.size());
+                    offerNodes.size());
             long time = (System.nanoTime() - start) / 1000000;
-            window.putLog("Завершено без ошибок за " + time + " мс");
-            nodes = null;
+            window.putLog("Завершено без ошибок за " + time + " мс.");
+            offerNodes = null;
             //window.workshop.setParseButtonDisabled();
         } catch (TransformerException e) {
             reportException(Thread.currentThread(),
@@ -169,7 +169,7 @@ class Parser {
     /**
      * Method to build update HashMap
      *
-     * @param remainderFile actual information about nodes
+     * @param remainderFile actual information about offerNodes
      * @return Map with pairs ID - String array with actual parameters for ID
      * @throws ParserConfigurationException Parser Configuration Exc
      * @throws IOException                  IO Exc
@@ -222,10 +222,10 @@ class Parser {
     }
 
     /**
-     * Method to update parsed nodes with actual parameters from remainderFile
+     * Method to update parsed offerNodes with actual parameters from remainderFile
      *
-     * @param nodes  list of nodes to update
-     * @param update actual information about nodes in corresponding ArrayList
+     * @param nodes  list of offerNodes to update
+     * @param update actual information about offerNodes in corresponding ArrayList
      * @return string with information about update process results
      */
     private static String updateNodes(HashMap<String, Node> nodes, HashMap<String, String[]> update) {
@@ -270,19 +270,18 @@ class Parser {
         return sb.toString();
     }
 
-    /**
-     * @param outputFile file to write in
-     * @param nodes      ArrayList of nodes to push
-     * @param mode       mode detailed/summary0
-     * @throws IOException                  IOException
-     * @throws ParserConfigurationException ParserConfigurationException
-     * @throws SAXException                 SAXException
-     * @throws TransformerException         TransformerException
-     */
-    private static void pushDocumentToFile(File outputFile, HashMap<String, Node> nodes, int mode)
+    private static void pushDocumentToFile(File outputFile, int mode)
             throws IOException, ParserConfigurationException, SAXException, TransformerException {
+        Collection<Node> nodeList;
         // Get node list
-        Collection<Node> nodeList = nodes.values();
+        if (mode == DET_MODE || mode == SUM_MODE)
+            nodeList = offerNodes.values();
+        else if (mode == DOUBLES_MODE)
+            nodeList = doublesNodes.values();
+        else {
+            reportException(Thread.currentThread(), new RuntimeException("Wrong mode"));
+            return;
+        }
         // Fill files by default (bicycle-bicycle)
         fillFileByDefault(outputFile);
         // Builders for file
@@ -290,10 +289,9 @@ class Parser {
         // DOM tree
         Document document = documentBuilder.parse(outputFile);
         // Get parent element (it was created by fillFileByDefault method)
-        Node newNode = document.getDocumentElement();
+        Node documentHead = document.getDocumentElement();
         for (Node node : nodeList)
-            addNodeToFile(node, newNode, document, mode);
-
+            addNodeToDocument(node, documentHead, document, mode);
         // Write  file
         writeFile(document, outputFile);
     }
@@ -309,6 +307,12 @@ class Parser {
 
     private static void writeFile(Document document, File file) throws TransformerException, IOException {
         Transformer tr = TransformerFactory.newInstance().newTransformer();
+
+        tr.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
+        tr.setOutputProperty(OutputKeys.INDENT, "yes");
+
+        document.setXmlStandalone(true);
+
         DOMSource source = new DOMSource(document);
         FileOutputStream fos = new FileOutputStream(file);
         StreamResult result = new StreamResult(fos);
@@ -317,7 +321,7 @@ class Parser {
     }
 
     /**
-     * Method to convert node into new formatted nodes. After this writes these nodes into document
+     * Method to convert node into new formatted offerNodes. After this writes these offerNodes into document
      *
      * @param node     input node ready to convert
      * @param newHead  new node for detailed document
@@ -325,7 +329,7 @@ class Parser {
      * @param mode     mode number here in static section
      */
 
-    private static void addNodeToFile(Node node, Node newHead, Document document, int mode) {
+    private static void addNodeToDocument(Node node, Node newHead, Document document, int mode) {
         NodeList childList = node.getChildNodes();
         switch (mode) {
             case DET_MODE:
@@ -346,20 +350,43 @@ class Parser {
             case SUM_MODE:
                 // building node for summary file
                 Element sumNode = document.createElement("item");
-                Element id = document.createElement("id");
-                Element parent = document.createElement("parent");
+                Element sumID = document.createElement("id");
+                Element sumParent = document.createElement("parent");
                 Element innerItem = document.createElement("item");
-                parent.appendChild(innerItem);
-                sumNode.appendChild(id);
-                sumNode.appendChild(parent);
+                sumParent.appendChild(innerItem);
+                sumNode.appendChild(sumID);
+                sumNode.appendChild(sumParent);
                 for (int i = 0; i < childList.getLength(); i++) {
                     Node current = childList.item(i);
                     if (current.getNodeName().equals("id"))
-                        id.setTextContent(current.getTextContent());
+                        sumID.setTextContent(current.getTextContent());
                     else if (current.getNodeName().equals("parent"))
                         innerItem.setTextContent(current.getTextContent());
                 }
                 newHead.appendChild(sumNode);
+                break;
+            case DOUBLES_MODE:
+                // building node for doubles file
+                Element doublNode = document.createElement("item");
+                Element doublID = document.createElement("id");
+                Element doublParent = document.createElement("parent");
+                doublNode.appendChild(doublID);
+                doublNode.appendChild(doublParent);
+                for (int i = 0; i < childList.getLength(); i++) {
+                    if (childList.item(i).getNodeName().equals("id"))
+                        doublID.setTextContent(childList.item(i).getTextContent());
+                    if (childList.item(i).getNodeName().equals("parent")) {
+                        NodeList parentItemList = childList.item(i).getChildNodes();
+                        for (int j = 0; j < parentItemList.getLength(); j++) {
+                            if (parentItemList.item(j).getNodeName().equals("item")) {
+                                Element innerParentItem = document.createElement("item");
+                                innerParentItem.setTextContent(parentItemList.item(j).getTextContent());
+                                doublParent.appendChild(innerParentItem);
+                            }
+                        }
+                    }
+                }
+                newHead.appendChild(doublNode);
                 break;
             default:
                 break;
@@ -372,9 +399,9 @@ class Parser {
      * @param file file to print info about
      */
     private static void printFileInfo(File file) {
-        window.putLog(String.format("[%8db] Modified %s  %s", file.length(),
+        window.putLog(String.format("[%6dkb] Modified %s  @%s", 1 + file.length() / 1024,
                 new SimpleDateFormat("YYYY-MM-dd HH:mm").format(new Date(file.lastModified())),
-                file.getPath()));
+                file.getPath().substring(workingDirectory.getParent().length())));
     }
 
     /**
@@ -383,9 +410,8 @@ class Parser {
      */
     private static void fillFileByDefault(File file) throws IOException {
         Date nowDate = new Date();
-        String outputFileString = "<?xml version =\"1.0\" encoding=\"UTF-8\"?>\n" +
-                "<КоммерческаяИнформация ВерсияСхемы=\"2.03\" ДатаФормирования=\"" +
-                new SimpleDateFormat("YYYY-MM-dd").format(nowDate) + "\">\n</КоммерческаяИнформация>";
+        String outputFileString = "<?xml version =\"1.0\" encoding=\"UTF-8\"?>\n<КоммерческаяИнформация ВерсияСхемы=\"2.03\" ДатаФормирования=\"" +
+                new SimpleDateFormat("YYYY-MM-dd").format(nowDate) + "\"></КоммерческаяИнформация>";
 
         BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(
                 new FileOutputStream(file), "UTF8"));
