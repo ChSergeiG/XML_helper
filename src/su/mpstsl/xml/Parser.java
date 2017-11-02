@@ -258,14 +258,23 @@ class Parser {
                             break;
                     }
                 }
+                update.remove(key);
             } else if (key.length() > 4) {
-                if (sb.length() == 0) sb.append("*** В остатках отсутствуют: ");
+                if (sb.length() == 0) sb.append("*** В исходниках есть, в остатках отсутствуют: ");
+                sb.append(key);
+                sb.append(", ");
+            }
+        }
+        if (sb.length() > 2) sb.delete(sb.length() - 2, sb.length());
+        sb.append("\n*** В остатках есть, в исходниках отсутствуют: ");
+        for (String key : update.keySet()) {
+            if (key.length() > 4) {
                 sb.append(key);
                 sb.append(", ");
             }
         }
         sb.delete(sb.length() - 2, sb.length());
-        sb.append(".\nЧисло  обновленных записей: ");
+        sb.append("\nЧисло  обновленных записей: ");
         sb.append(count);
         return sb.toString();
     }

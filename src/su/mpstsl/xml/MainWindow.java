@@ -12,7 +12,7 @@ import java.io.File;
 public class MainWindow extends JFrame implements ActionListener, Thread.UncaughtExceptionHandler {
 
     private static final int POS_X = 100;
-    private static final int POS_Y = 100;
+    private static final int POS_Y = 10;
     private static final int WINDOW_WIDTH = 900;
     private static final int WINDOW_HEIGHT = 700;
     private static final String WINDOW_NAME = "XML helper v 0.28";
