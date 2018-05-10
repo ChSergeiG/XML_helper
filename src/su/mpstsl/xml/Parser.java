@@ -6,7 +6,7 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-import javax.swing.*;
+import javax.swing.JOptionPane;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -16,18 +16,28 @@ import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
-import java.io.*;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashMap;
 
 class Parser {
     private static final int DET_MODE = 0;
     private static final int SUM_MODE = 1;
     private static final int DOUBLES_MODE = 2;
-
     private static final int OFFER = 0;
     private static final int DOUBLES = 1;
-
+    private static final String OUTP_FILE_TEMPLATE =
+            "<?xml version =\"1.0\" encoding=\"UTF-8\"?>\n" +
+                    "<КоммерческаяИнформация ВерсияСхемы=\"2.03\" ДатаФормирования=\"" + new SimpleDateFormat("YYYY-MM-dd").
+                    format(new Date()) + "\">\n" +
+                    "</КоммерческаяИнформация>";
     private static HashMap<String, Node> offerNodes;
     private static HashMap<String, Node> doublesNodes;
 
@@ -175,7 +185,6 @@ class Parser {
      * @throws IOException                  IO Exc
      * @throws SAXException                 SAX Exc
      */
-
     private static HashMap<String, String[]> buildUpdateMap(File remainderFile)
             throws ParserConfigurationException, IOException, SAXException {
         DocumentBuilder documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
@@ -337,69 +346,98 @@ class Parser {
      * @param document detailed document
      * @param mode     mode number here in static section
      */
-
     private static void addNodeToDocument(Node node, Node newHead, Document document, int mode) {
         NodeList childList = node.getChildNodes();
         switch (mode) {
             case DET_MODE:
-                // building node for detailed file
-                Element detNode = document.createElement("offer");
-                for (int i = 0; i < childList.getLength(); i++) {
-                    Node current = childList.item(i);
-                    for (int j = 0; j < TableEntry.ENTRY_SIZE; j++) {
-                        if (current.getNodeName().equals(TableEntry.tags[j])) {
-                            Element element = document.createElement(current.getNodeName());
-                            element.setTextContent(current.getTextContent());
-                            detNode.appendChild(element);
-                        }
-                    }
-                }
-                newHead.appendChild(detNode);
+                buildDetailedNode(document, childList, newHead);
                 break;
             case SUM_MODE:
-                // building node for summary file
-                Element sumNode = document.createElement("item");
-                Element sumID = document.createElement("id");
-                Element sumParent = document.createElement("parent");
-                Element innerItem = document.createElement("item");
-                sumParent.appendChild(innerItem);
-                sumNode.appendChild(sumID);
-                sumNode.appendChild(sumParent);
-                for (int i = 0; i < childList.getLength(); i++) {
-                    Node current = childList.item(i);
-                    if (current.getNodeName().equals("id"))
-                        sumID.setTextContent(current.getTextContent());
-                    else if (current.getNodeName().equals("parent"))
-                        innerItem.setTextContent(current.getTextContent());
-                }
-                newHead.appendChild(sumNode);
+                buildSummaryNode(document, childList, newHead);
                 break;
             case DOUBLES_MODE:
-                // building node for doubles file
-                Element doublNode = document.createElement("item");
-                Element doublID = document.createElement("id");
-                Element doublParent = document.createElement("parent");
-                doublNode.appendChild(doublID);
-                doublNode.appendChild(doublParent);
-                for (int i = 0; i < childList.getLength(); i++) {
-                    if (childList.item(i).getNodeName().equals("id"))
-                        doublID.setTextContent(childList.item(i).getTextContent());
-                    if (childList.item(i).getNodeName().equals("parent")) {
-                        NodeList parentItemList = childList.item(i).getChildNodes();
-                        for (int j = 0; j < parentItemList.getLength(); j++) {
-                            if (parentItemList.item(j).getNodeName().equals("item")) {
-                                Element innerParentItem = document.createElement("item");
-                                innerParentItem.setTextContent(parentItemList.item(j).getTextContent());
-                                doublParent.appendChild(innerParentItem);
-                            }
-                        }
-                    }
-                }
-                newHead.appendChild(doublNode);
+                buildDoublesNode(document, childList, newHead);
                 break;
             default:
                 break;
         }
+    }
+
+    /**
+     * Method to build doubles node
+     *
+     * @param document  to write node in
+     * @param childList list of childs
+     * @param newHead   new head
+     */
+    private static void buildDoublesNode(Document document, NodeList childList, Node newHead) {
+        Element doublNode = document.createElement("item");
+        Element doublID = document.createElement("id");
+        Element doublParent = document.createElement("parent");
+        doublNode.appendChild(doublID);
+        doublNode.appendChild(doublParent);
+        for (int i = 0; i < childList.getLength(); i++) {
+            if (childList.item(i).getNodeName().equals("id"))
+                doublID.setTextContent(childList.item(i).getTextContent());
+            if (childList.item(i).getNodeName().equals("parent")) {
+                NodeList parentItemList = childList.item(i).getChildNodes();
+                for (int j = 0; j < parentItemList.getLength(); j++) {
+                    if (parentItemList.item(j).getNodeName().equals("item")) {
+                        Element innerParentItem = document.createElement("item");
+                        innerParentItem.setTextContent(parentItemList.item(j).getTextContent());
+                        doublParent.appendChild(innerParentItem);
+                    }
+                }
+            }
+        }
+        newHead.appendChild(doublNode);
+    }
+
+    /**
+     * Method to build summary/short node
+     *
+     * @param document  to write node in
+     * @param childList list of childs
+     * @param newHead   new head
+     */
+    private static void buildSummaryNode(Document document, NodeList childList, Node newHead) {
+        Element sumNode = document.createElement("item");
+        Element sumID = document.createElement("id");
+        Element sumParent = document.createElement("parent");
+        Element innerItem = document.createElement("item");
+        sumParent.appendChild(innerItem);
+        sumNode.appendChild(sumID);
+        sumNode.appendChild(sumParent);
+        for (int i = 0; i < childList.getLength(); i++) {
+            Node current = childList.item(i);
+            if (current.getNodeName().equals("id"))
+                sumID.setTextContent(current.getTextContent());
+            else if (current.getNodeName().equals("parent"))
+                innerItem.setTextContent(current.getTextContent());
+        }
+        newHead.appendChild(sumNode);
+    }
+
+    /**
+     * Method to build detailed node
+     *
+     * @param document  to write node in
+     * @param childList list of childs
+     * @param newHead   new head
+     */
+    private static void buildDetailedNode(Document document, NodeList childList, Node newHead) {
+        Element detNode = document.createElement("offer");
+        for (int i = 0; i < childList.getLength(); i++) {
+            Node current = childList.item(i);
+            for (int j = 0; j < TableEntry.ENTRY_SIZE; j++) {
+                if (current.getNodeName().equals(TableEntry.tags[j])) {
+                    Element element = document.createElement(current.getNodeName());
+                    element.setTextContent(current.getTextContent());
+                    detNode.appendChild(element);
+                }
+            }
+        }
+        newHead.appendChild(detNode);
     }
 
     /**
@@ -418,13 +456,9 @@ class Parser {
      * @throws IOException IOException
      */
     private static void fillFileByDefault(File file) throws IOException {
-        Date nowDate = new Date();
-        String outputFileString = "<?xml version =\"1.0\" encoding=\"UTF-8\"?>\n<КоммерческаяИнформация ВерсияСхемы=\"2.03\" ДатаФормирования=\"" +
-                new SimpleDateFormat("YYYY-MM-dd").format(nowDate) + "\"></КоммерческаяИнформация>";
-
         BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(
                 new FileOutputStream(file), "UTF8"));
-        bw.write(outputFileString);
+        bw.write(OUTP_FILE_TEMPLATE);
         bw.flush();
     }
 
@@ -434,7 +468,6 @@ class Parser {
      * @param t thread, generated exception
      * @param e exception
      */
-
     private static void reportException(Thread t, Throwable e) {
         String message = "Unexpected situation in thread " + t.getName() + ".\n\t" +
                 e.getStackTrace()[0] + " " + e.getMessage();
