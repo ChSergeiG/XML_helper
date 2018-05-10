@@ -1,10 +1,21 @@
-/**
- * Main window
- */
 package su.mpstsl.xml;
 
-import javax.swing.*;
-import java.awt.*;
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JFileChooser;
+import javax.swing.JFrame;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.SwingUtilities;
+import javax.swing.WindowConstants;
+import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
@@ -15,7 +26,7 @@ public class MainWindow extends JFrame implements ActionListener, Thread.Uncaugh
     private static final int POS_Y = 10;
     private static final int WINDOW_WIDTH = 900;
     private static final int WINDOW_HEIGHT = 700;
-    private static final String WINDOW_NAME = "XML helper v 0.28";
+    private static final String WINDOW_NAME = "XML helper v 0.28.1";
 
     private final JButton jbFiles = new JButton("Указать файлы");
     private final JButton jbExcFile = new JButton("Указать файл остатков");
@@ -94,12 +105,7 @@ public class MainWindow extends JFrame implements ActionListener, Thread.Uncaugh
      */
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                new MainWindow();
-            }
-        });
+        SwingUtilities.invokeLater(MainWindow::new);
     }
 
     void putLog(String message) {
@@ -115,42 +121,76 @@ public class MainWindow extends JFrame implements ActionListener, Thread.Uncaugh
     public void actionPerformed(ActionEvent e) {
         Object source = e.getSource();
         if (source.equals(jbFiles)) {
-            JFileChooser setWD = new JFileChooser(System.getProperty("user.home"));
-            setWD.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-            setWD.setDialogType(JFileChooser.OPEN_DIALOG);
-            setWD.showDialog(this, "Выбрать папку");
-            workingDirectory = setWD.getSelectedFile();
-//            workingDirectory = new File("C:\\Users\\chser\\Desktop\\targets\\in");
-            putLog("Директория с файлами: " + workingDirectory.getPath());
-            jbParse.setEnabled(workingDirectory != null && remainderFile != null);
+            chooseFilesDirectory();
         } else if (source.equals(jbExcFile)) {
-            JFileChooser setEF = new JFileChooser(System.getProperty("user.home"));
-            setEF.setDialogType(JFileChooser.OPEN_DIALOG);
-            setEF.showDialog(this, "Выбрать файл");
-            remainderFile = setEF.getSelectedFile();
-//            remainderFile = new File("C:\\Users\\chser\\Desktop\\targets\\in\\catalogue_products_short.xml");
-            putLog("Файл остатков: " + remainderFile.getPath());
-            jbParse.setEnabled(workingDirectory != null && remainderFile != null);
+            chooseRemaindersFile();
         } else if (source.equals(jbParse)) {
-            if (workingDirectory != null) {
-                Parser.initConstants(this, workingDirectory, remainderFile);
-                Parser.parseIt();
-                workingDirectory = null;
-                remainderFile = null;
-                jbParse.setEnabled(false);
-            }
+           parse();
         } else if (source.equals(jbClear)) {
-            jtaLog.setText("");
-        } else if (source.equals(jbClose)) {
-            System.exit(0);
-        } else if (source.equals(jmiQuit)) {
+            clearLog();
+        } else if (source.equals(jbClose) || source.equals(jmiQuit)) {
             System.exit(0);
         } else if (source.equals(jmiAbout)) {
-            JOptionPane.showMessageDialog(this, "Пока что никакой\nинформации тут нет.\nДа и вряд ли будет.", "^^(,oO,)^^",
-                    JOptionPane.INFORMATION_MESSAGE);
+            showInfo();
         } else
             uncaughtException(Thread.currentThread(),
                     new RuntimeException("Неверное действие (" + e.getActionCommand() + ")"));
+    }
+
+    /**
+     * Method to invoke info window
+     */
+    private void showInfo() {
+        JOptionPane.showMessageDialog(
+                this,
+                "Пока что никакой\nинформации тут нет.\nДа и вряд ли будет.",
+                "^^(,oO,)^^",
+                JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    /**
+     * Clear log window
+     */
+    private void clearLog() {
+        jtaLog.setText("");
+    }
+
+    /**
+     * Method to do parse
+     */
+    private void parse() {
+        if (workingDirectory != null) {
+            Parser.initConstants(this, workingDirectory, remainderFile);
+            Parser.parseIt();
+            workingDirectory = null;
+            remainderFile = null;
+            jbParse.setEnabled(false);
+        }
+    }
+
+    /**
+     * Method to choose remainders xml file
+     */
+    private void chooseRemaindersFile() {
+        JFileChooser setEF = new JFileChooser(System.getProperty("user.home"));
+        setEF.setDialogType(JFileChooser.OPEN_DIALOG);
+        setEF.showDialog(this, "Выбрать файл");
+        remainderFile = setEF.getSelectedFile();
+        putLog("Файл остатков: " + remainderFile.getPath());
+        jbParse.setEnabled(workingDirectory != null && remainderFile != null);
+    }
+
+    /**
+     * Method to select directory with source xml tree
+     */
+    private void chooseFilesDirectory() {
+        JFileChooser setWD = new JFileChooser(System.getProperty("user.home"));
+        setWD.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        setWD.setDialogType(JFileChooser.OPEN_DIALOG);
+        setWD.showDialog(this, "Выбрать папку");
+        workingDirectory = setWD.getSelectedFile();
+        putLog("Директория с файлами: " + workingDirectory.getPath());
+        jbParse.setEnabled(workingDirectory != null && remainderFile != null);
     }
 
     /**
@@ -161,7 +201,7 @@ public class MainWindow extends JFrame implements ActionListener, Thread.Uncaugh
      */
     @Override
     public void uncaughtException(Thread t, Throwable e) {
-        String message = "В потоке " + t.getName() + " произошло что-то неожиданное.\n\tА именно: " + e.getMessage();
+        String message = "В потоке '" + t.getName() + "' произошло что-то неожиданное.\n\tА именно: " + e.getMessage();
         JOptionPane.showMessageDialog(null, message, "Exception", JOptionPane.ERROR_MESSAGE);
     }
 }
