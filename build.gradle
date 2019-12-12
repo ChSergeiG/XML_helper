@@ -1,0 +1,35 @@
+plugins {
+    id 'java-library'
+    id 'application'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+application {
+    mainClassName("su.mpstsl.xml.MainWindow")
+}
+
+group 'su.mpstsl.xml'
+version '1.0.0b'
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+jar {
+    manifest {
+        attributes(
+                'Main-Class': 'su.mpstsl.xml.MainWindow'
+        )
+    }
+    from {
+        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
